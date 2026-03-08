@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "openspec-proposal-creation": {
+      "source": "forztf/open-skilled-sdd",
+      "sourceType": "github",
+      "computedHash": "4daf55467d064d664d2ca6eb5434ee9c1bfb6c14c94ec43b02aee477e55da684"
+    }
+  }
+}
