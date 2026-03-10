@@ -26,6 +26,7 @@ object RegistrationSpec extends ZIOSpecDefault {
             id            UUID         PRIMARY KEY,
             email         VARCHAR(255) NOT NULL UNIQUE,
             password_hash VARCHAR(255) NOT NULL,
+            name          VARCHAR(100),
             created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
         """.execute
@@ -89,6 +90,27 @@ object RegistrationSpec extends ZIOSpecDefault {
           _    <- initSchema
           user <- AuthService.register("exact8@example.com", "12345678")
         } yield assertTrue(user.email == "exact8@example.com")
+      },
+
+      test("registration with name stores the name") {
+        for {
+          _    <- initSchema
+          user <- AuthService.register("named@example.com", "password123", Some("Alice"))
+        } yield assertTrue(user.name.contains("Alice"))
+      },
+
+      test("registration without name stores None") {
+        for {
+          _    <- initSchema
+          user <- AuthService.register("noname@example.com", "password123")
+        } yield assertTrue(user.name.isEmpty)
+      },
+
+      test("registration trims whitespace from name") {
+        for {
+          _    <- initSchema
+          user <- AuthService.register("trimmed@example.com", "password123", Some("  Bob  "))
+        } yield assertTrue(user.name.contains("Bob"))
       }
 
     ).provideLayerShared(testLayers) @@ TestAspect.sequential

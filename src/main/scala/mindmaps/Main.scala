@@ -30,6 +30,7 @@ object Main extends ZIOAppDefault {
           id            UUID         PRIMARY KEY,
           email         VARCHAR(255) NOT NULL UNIQUE,
           password_hash VARCHAR(255) NOT NULL,
+          name          VARCHAR(100),
           created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
       """.execute

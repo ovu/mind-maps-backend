@@ -8,6 +8,7 @@ final case class User(
   id: UUID,
   email: String,
   passwordHash: String,
+  name: Option[String],
   createdAt: Instant
 )
 

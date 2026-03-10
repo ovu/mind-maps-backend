@@ -27,6 +27,7 @@ object ProtectedRouteSpec extends ZIOSpecDefault {
             id            UUID         PRIMARY KEY,
             email         VARCHAR(255) NOT NULL UNIQUE,
             password_hash VARCHAR(255) NOT NULL,
+            name          VARCHAR(100),
             created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
         """.execute
@@ -39,7 +40,7 @@ object ProtectedRouteSpec extends ZIOSpecDefault {
     ZLayer.succeed(AuthConfig(jwtSecret = "test-secret", jwtExpirySeconds = 3600, bcryptWorkFactor = 4))
 
   private val testLayers =
-    ZLayer.make[AuthService & JwtService & ZConnectionPool](
+    ZLayer.make[AuthService & JwtService & UserRepository & ZConnectionPool](
       testDb,
       UserRepository.live,
       testHasher,
@@ -51,10 +52,10 @@ object ProtectedRouteSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("Protected route (GET /api/me)")(
 
-      test("valid JWT returns 200 with the authenticated user id") {
+      test("valid JWT returns 200 with the authenticated user id and name") {
         for {
           _     <- initSchema
-          user  <- AuthService.register("me@example.com", "password123")
+          user  <- AuthService.register("me@example.com", "password123", Some("Alice"))
           token <- JwtService.createToken(user.id)
           req    = Request.get(URL.decode("/api/me").toOption.get)
                      .addHeader(Header.Authorization.Bearer(token))
@@ -62,7 +63,24 @@ object ProtectedRouteSpec extends ZIOSpecDefault {
           body  <- resp.body.asString
         } yield assertTrue(
           resp.status == Status.Ok,
-          body.contains(user.id.toString)
+          body.contains(user.id.toString),
+          body.contains("Alice")
+        )
+      },
+
+      test("/me returns null name when user registered without name") {
+        for {
+          _     <- initSchema
+          user  <- AuthService.register("noname-me@example.com", "password123")
+          token <- JwtService.createToken(user.id)
+          req    = Request.get(URL.decode("/api/me").toOption.get)
+                     .addHeader(Header.Authorization.Bearer(token))
+          resp  <- ZIO.scoped(AuthRoutes.routes.runZIO(req))
+          body  <- resp.body.asString
+        } yield assertTrue(
+          resp.status == Status.Ok,
+          body.contains(user.id.toString),
+          !body.contains("\"name\":")
         )
       },
 

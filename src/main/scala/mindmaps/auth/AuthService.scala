@@ -20,15 +20,15 @@ object AuthError {
 }
 
 trait AuthService {
-  def register(email: String, password: String): IO[AuthError, User]
+  def register(email: String, password: String, name: Option[String] = None): IO[AuthError, User]
   def login(email: String, password: String): IO[AuthError, User]
 }
 
 object AuthService {
   val MinPasswordLength: Int = 8
 
-  def register(email: String, password: String): ZIO[AuthService, AuthError, User] =
-    ZIO.serviceWithZIO[AuthService](_.register(email, password))
+  def register(email: String, password: String, name: Option[String] = None): ZIO[AuthService, AuthError, User] =
+    ZIO.serviceWithZIO[AuthService](_.register(email, password, name))
 
   def login(email: String, password: String): ZIO[AuthService, AuthError, User] =
     ZIO.serviceWithZIO[AuthService](_.login(email, password))
@@ -40,13 +40,13 @@ object AuthService {
 final case class AuthServiceLive(repo: UserRepository, hasher: PasswordHasher) extends AuthService {
   import AuthError._
 
-  override def register(email: String, password: String): IO[AuthError, User] =
+  override def register(email: String, password: String, name: Option[String]): IO[AuthError, User] =
     for {
       _ <- ZIO.when(password.length < AuthService.MinPasswordLength)(
              ZIO.fail(PasswordTooShort(AuthService.MinPasswordLength))
            )
       hash <- hasher.hash(password).mapError(Unexpected.apply)
-      user <- repo.insert(email, hash).mapError {
+      user <- repo.insert(email, hash, name).mapError {
                 case UserRepository.Error.EmailAlreadyExists   => EmailAlreadyRegistered(email)
                 case UserRepository.Error.Unexpected(cause) => Unexpected(cause)
               }

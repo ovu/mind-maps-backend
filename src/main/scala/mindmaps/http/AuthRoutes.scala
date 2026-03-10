@@ -9,7 +9,7 @@ import zio.json._
 // Request / response models with zio-json codecs
 // ---------------------------------------------------------------------------
 
-final case class RegisterRequest(email: String, password: String)
+final case class RegisterRequest(email: String, password: String, name: Option[String] = None)
 object RegisterRequest {
   given JsonDecoder[RegisterRequest] = DeriveJsonDecoder.gen
 }
@@ -34,7 +34,7 @@ object ErrorResponse {
   given JsonEncoder[ErrorResponse] = DeriveJsonEncoder.gen
 }
 
-final case class UserResponse(userId: String)
+final case class UserResponse(userId: String, name: Option[String])
 object UserResponse {
   given JsonEncoder[UserResponse] = DeriveJsonEncoder.gen
 }
@@ -67,17 +67,17 @@ object AuthRoutes {
   }
 
   // Task 6.1 — POST /auth/register
-  private val registerHandler: Handler[AuthService & JwtService, Nothing, Request, Response] =
+  private val registerHandler: Handler[AuthService & JwtService & UserRepository, Nothing, Request, Response] =
     Handler.fromFunctionZIO[Request] { request =>
       (for {
         req  <- parseBody[RegisterRequest](request)
-        user <- AuthService.register(req.email, req.password).mapError(authErrorToResponse)
+        user <- AuthService.register(req.email, req.password, req.name).mapError(authErrorToResponse)
       } yield Response.json(MessageResponse("Registration successful").toJson).status(Status.Created))
         .fold(identity, identity)
     }
 
   // Task 6.2 — POST /auth/login
-  private val loginHandler: Handler[AuthService & JwtService, Nothing, Request, Response] =
+  private val loginHandler: Handler[AuthService & JwtService & UserRepository, Nothing, Request, Response] =
     Handler.fromFunctionZIO[Request] { request =>
       (for {
         req   <- parseBody[LoginRequest](request)
@@ -88,17 +88,20 @@ object AuthRoutes {
         .fold(identity, identity)
     }
 
-  // Task 6.3 + 6.4 — protected example: GET /api/me
-  // Uses AuthMiddleware.requireAuth to enforce a valid JWT; returns 401 if missing/invalid.
-  private val meHandler: Handler[AuthService & JwtService, Nothing, Request, Response] =
+  // GET /api/me — returns authenticated user's id and name
+  private val meHandler: Handler[AuthService & JwtService & UserRepository, Nothing, Request, Response] =
     Handler.fromFunctionZIO[Request] { request =>
       (for {
-        userId <- AuthMiddleware.requireAuth(request)
-      } yield Response.json(UserResponse(userId.toString).toJson))
+        userId  <- AuthMiddleware.requireAuth(request)
+        userOpt <- UserRepository.findById(userId)
+                     .mapError(_ => Response.status(Status.InternalServerError))
+        user    <- ZIO.fromOption(userOpt)
+                     .mapError(_ => Response.status(Status.NotFound))
+      } yield Response.json(UserResponse(user.id.toString, user.name).toJson))
         .fold(identity, identity)
     }
 
-  val routes: Routes[AuthService & JwtService, Nothing] = Routes(
+  val routes: Routes[AuthService & JwtService & UserRepository, Nothing] = Routes(
     Method.POST / "auth" / "register" -> registerHandler,
     Method.POST / "auth" / "login"    -> loginHandler,
     // Protected route example — Task 6.4
