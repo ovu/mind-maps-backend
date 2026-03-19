@@ -1,8 +1,8 @@
 openapi: "3.0.3"
 info:
   title: "Mind Maps API"
-  version: "1.0.0"
-  description: "Mind Maps backend — authentication endpoints"
+  version: "2.0.0"
+  description: "Mind Maps backend — authentication and mind map management"
 
 paths:
   /auth/register:
@@ -82,6 +82,295 @@ paths:
         '401':
           description: Missing or invalid JWT
 
+  /api/mind-maps:
+    post:
+      summary: Create a new mind map
+      operationId: createMindMap
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMindMapRequest'
+      responses:
+        '201':
+          description: Mind map created with root node
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MindMapResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid JWT
+    get:
+      summary: List user's mind maps
+      operationId: listMindMaps
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of mind maps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MindMapListItem'
+        '401':
+          description: Missing or invalid JWT
+
+  /api/mind-maps/{id}:
+    get:
+      summary: Get mind map with full node tree
+      operationId: getMindMap
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Mind map with nested node tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MindMapResponse'
+        '404':
+          description: Mind map not found
+        '401':
+          description: Missing or invalid JWT
+    put:
+      summary: Update mind map name
+      operationId: updateMindMap
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMindMapRequest'
+      responses:
+        '200':
+          description: Updated mind map
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MindMapResponse'
+        '404':
+          description: Mind map not found
+        '401':
+          description: Missing or invalid JWT
+    delete:
+      summary: Delete mind map and all nodes
+      operationId: deleteMindMap
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Mind map deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Mind map not found
+        '401':
+          description: Missing or invalid JWT
+
+  /api/mind-maps/{mmId}/nodes:
+    post:
+      summary: Add a node to a mind map
+      operationId: addNode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNodeRequest'
+      responses:
+        '201':
+          description: Node created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Mind map not found
+        '401':
+          description: Missing or invalid JWT
+
+  /api/mind-maps/{mmId}/nodes/{nodeId}:
+    put:
+      summary: Update a node
+      operationId: updateNode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNodeRequest'
+      responses:
+        '200':
+          description: Updated node
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Node not found
+        '401':
+          description: Missing or invalid JWT
+    delete:
+      summary: Delete a node and all descendants
+      operationId: deleteNode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Node deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Cannot delete root node
+        '404':
+          description: Node not found
+        '401':
+          description: Missing or invalid JWT
+
+  /api/mind-maps/{mmId}/nodes/{nodeId}/upload:
+    post:
+      summary: Upload a picture for a picture node
+      operationId: uploadPicture
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: mmId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Picture uploaded, node updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeResponse'
+        '400':
+          description: Node is not a picture type
+        '404':
+          description: Node not found
+        '401':
+          description: Missing or invalid JWT
+
+  /uploads/{filename}:
+    get:
+      summary: Serve an uploaded picture file
+      operationId: getUpload
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The image file
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found
+
 components:
   securitySchemes:
     bearerAuth:
@@ -157,3 +446,115 @@ components:
           nullable: true
           description: "User's display name, if provided during registration"
           example: "Alice"
+
+    CreateMindMapRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "My Ideas"
+
+    UpdateMindMapRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Renamed Map"
+
+    MindMapListItem:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    MindMapResponse:
+      type: object
+      required: [id, name, createdAt, rootNode]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        rootNode:
+          $ref: '#/components/schemas/NodeResponse'
+
+    CreateNodeRequest:
+      type: object
+      required: [parentId, nodeType]
+      properties:
+        parentId:
+          type: string
+          format: uuid
+        nodeType:
+          type: string
+          enum: [text, link, picture]
+        text:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: true
+          description: "URL for link nodes; filename set automatically for picture nodes"
+        color:
+          type: string
+          nullable: true
+
+    UpdateNodeRequest:
+      type: object
+      properties:
+        nodeType:
+          type: string
+          enum: [text, link, picture]
+        text:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+
+    NodeResponse:
+      type: object
+      required: [id, nodeType, createdAt, children]
+      properties:
+        id:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        nodeType:
+          type: string
+          enum: [text, link, picture]
+        text:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeResponse'

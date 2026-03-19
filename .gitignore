@@ -4,3 +4,5 @@
 .bsp
 target
 data
+.scala-build/
+uploads/
